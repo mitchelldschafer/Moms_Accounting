@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Upload } from 'lucide-react';
 import { ClientLayout } from '@/components/layouts/client-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -126,75 +127,92 @@ export default function ClientUpload() {
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Document Details</CardTitle>
-            <CardDescription>
-              Provide information about the documents you're uploading
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="tax-year">Tax Year *</Label>
-                <Select value={taxYear} onValueChange={setTaxYear}>
-                  <SelectTrigger id="tax-year">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {taxYears.map((year) => (
-                      <SelectItem key={year} value={year.toString()}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {!user?.assigned_cpa_id ? (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-4 text-lg font-medium text-gray-900">No CPA Assigned</h3>
+                <p className="mt-2 text-gray-600">
+                  You need to be connected to a CPA before you can upload documents.
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Ask your CPA to send you an invitation link, or contact support for help.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Details</CardTitle>
+              <CardDescription>
+                Provide information about the documents you're uploading
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="tax-year">Tax Year *</Label>
+                  <Select value={taxYear} onValueChange={setTaxYear}>
+                    <SelectTrigger id="tax-year">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {taxYears.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="document-type">Document Type (Optional)</Label>
+                  <Select
+                    value={documentType}
+                    onValueChange={(value) => setDocumentType(value as DocumentType)}
+                  >
+                    <SelectTrigger id="document-type">
+                      <SelectValue placeholder="Select type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Not specified</SelectItem>
+                      {getDocumentTypeOptions().map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="document-type">Document Type (Optional)</Label>
-                <Select
-                  value={documentType}
-                  onValueChange={(value) => setDocumentType(value as DocumentType)}
-                >
-                  <SelectTrigger id="document-type">
-                    <SelectValue placeholder="Select type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Not specified</SelectItem>
-                    {getDocumentTypeOptions().map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Add any additional information about these documents..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Add any additional information about these documents..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Upload Files</Label>
+                <FileUpload onUpload={handleFileUpload} multiple />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Upload Files</Label>
-              <FileUpload onUpload={handleFileUpload} multiple />
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> You can upload multiple files at once. Supported formats: PDF, JPG, PNG, HEIC (max 50MB per file).
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Tip:</strong> You can upload multiple files at once. Supported formats: PDF, JPG, PNG, HEIC (max 50MB per file).
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </ClientLayout>
   );

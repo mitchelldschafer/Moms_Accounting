@@ -100,6 +100,37 @@ export default function ClientDashboard() {
     );
   }
 
+  // Check if client has a CPA assigned
+  if (!user?.assigned_cpa_id) {
+    return (
+      <ClientLayout>
+        <div className="max-w-2xl mx-auto py-16">
+          <Card>
+            <CardHeader className="text-center">
+              <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <CardTitle>Welcome to TaxDocs!</CardTitle>
+              <CardDescription>
+                You're almost ready to start managing your tax documents.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-gray-600">
+                To get started, you need to be connected to your CPA.
+                Ask your accountant to send you an invitation link.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                <p className="text-sm text-blue-800">
+                  <strong>Next step:</strong> Contact your CPA and ask them to invite you to their TaxDocs account.
+                  You'll receive a link to complete the connection.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </ClientLayout>
+    );
+  }
+
   return (
     <ClientLayout>
       <div className="space-y-8">
