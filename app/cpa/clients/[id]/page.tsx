@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Eye, CheckCircle, MessageSquare, Plus } from 'lucide-react';
+import { FileText, Eye, CheckCircle, MessageSquare, Plus, Check, Pencil, X, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth-provider';
 import { StatusBadge } from '@/components/status-badge';
@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { FilingStatus } from '@/lib/supabase/types';
 import { maskSSN } from '@/lib/supabase/auth';
+import { getFieldLabel } from '@/lib/field-extractor';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+interface ExtractedDataRow {
+  id: string;
+  document_id: string;
+  field_name: string;
+  field_value: string | null;
+  confidence_score: number | null;
+  manually_verified: boolean;
+  extraction_method: string;
+  document?: {
+    file_name: string;
+    document_type: string;
+  };
+}
+
 export default function CPAClientDetail() {
   const params = useParams();
   const clientId = params.id as string;
@@ -38,6 +53,7 @@ export default function CPAClientDetail() {
   const [client, setClient] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [extractedData, setExtractedData] = useState<ExtractedDataRow[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +61,8 @@ export default function CPAClientDetail() {
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', due_date: '' });
   const [newMessage, setNewMessage] = useState({ subject: '', body: '' });
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
 
   useEffect(() => {
     if (user && clientId) {
@@ -72,6 +90,17 @@ export default function CPAClientDetail() {
     setDocuments(documentsRes.data || []);
     setTasks(tasksRes.data || []);
     setMessages(messagesRes.data || []);
+
+    // Load extracted data for all documents
+    if (documentsRes.data && documentsRes.data.length > 0) {
+      const docIds = documentsRes.data.map((d: any) => d.id);
+      const { data: extractedRes } = await supabase
+        .from('extracted_data')
+        .select('*, document:documents(file_name, document_type)')
+        .in('document_id', docIds);
+      setExtractedData((extractedRes as ExtractedDataRow[]) || []);
+    }
+
     setLoading(false);
   };
 
@@ -82,6 +111,30 @@ export default function CPAClientDetail() {
       toast({ title: 'Error', description: 'Failed to update document', variant: 'destructive' });
     } else {
       toast({ title: 'Updated', description: 'Document updated successfully' });
+      loadClientData();
+    }
+  };
+
+  const handleSaveField = async (fieldId: string, value: string) => {
+    if (!user) return;
+
+    const { error } = await (supabase as any)
+      .from('extracted_data')
+      .update({
+        field_value: value,
+        manually_verified: true,
+        verified_by: user.id,
+        verified_at: new Date().toISOString(),
+        confidence_score: 100,
+      })
+      .eq('id', fieldId);
+
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to save field', variant: 'destructive' });
+    } else {
+      toast({ title: 'Saved', description: 'Field value saved and verified' });
+      setEditingField(null);
+      setEditingValue('');
       loadClientData();
     }
   };
@@ -242,12 +295,82 @@ export default function CPAClientDetail() {
             <Card>
               <CardHeader>
                 <CardTitle>Extracted Data</CardTitle>
-                <CardDescription>Field-level data extracted from documents</CardDescription>
+                <CardDescription>Field-level data extracted from documents - click to edit values</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-center py-12 text-gray-500">
-                  Extraction features will be implemented in the next phase
-                </p>
+                {extractedData.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    No extracted data yet. Upload documents with recognizable names (e.g., W2_CompanyName_2024.pdf) to auto-extract fields.
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Group by document */}
+                    {documents.filter((d: any) => extractedData.some(e => e.document_id === d.id)).map((doc: any) => (
+                      <div key={doc.id} className="border rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <FileText className="h-4 w-4 text-gray-500" />
+                          <span className="font-medium">{doc.file_name}</span>
+                          <DocumentTypeLabel type={doc.document_type} />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {extractedData
+                            .filter(field => field.document_id === doc.id)
+                            .map(field => (
+                              <div key={field.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex-1">
+                                  <p className="text-sm text-gray-500">{getFieldLabel(field.field_name)}</p>
+                                  {editingField === field.id ? (
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <Input
+                                        value={editingValue}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingValue(e.target.value)}
+                                        className="h-8"
+                                        autoFocus
+                                      />
+                                      <Button size="sm" onClick={() => handleSaveField(field.id, editingValue)}>
+                                        <Save className="h-3 w-3" />
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={() => { setEditingField(null); setEditingValue(''); }}>
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <p className="font-medium">
+                                      {field.field_value || <span className="text-gray-400 italic">Not set</span>}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2 ml-4">
+                                  {field.manually_verified ? (
+                                    <Badge className="bg-green-100 text-green-800">
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Verified
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-yellow-100 text-yellow-800">
+                                      {Math.round(field.confidence_score || 0)}%
+                                    </Badge>
+                                  )}
+                                  {editingField !== field.id && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingField(field.id);
+                                        setEditingValue(field.field_value || '');
+                                      }}
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

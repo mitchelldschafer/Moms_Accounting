@@ -13,6 +13,8 @@ import { useAuth } from '@/components/auth-provider';
 import { getDocumentTypeOptions } from '@/components/document-type-label';
 import { FileUpload } from '@/components/file-upload';
 import { DocumentType } from '@/lib/supabase/types';
+import { classifyDocument, getClassificationDescription } from '@/lib/document-classifier';
+import { createInitialExtractedFields, requiresDataEntry } from '@/lib/field-extractor';
 
 export default function ClientUpload() {
   const { user } = useAuth();
@@ -28,6 +30,22 @@ export default function ClientUpload() {
   const handleFileUpload = async (file: File) => {
     if (!user || !user.assigned_cpa_id) {
       throw new Error('No CPA assigned. Please contact support.');
+    }
+
+    // Auto-classify if user didn't select a type
+    let finalDocType = documentType as DocumentType | null;
+    let confidenceScore = 1.0;
+
+    if (!documentType) {
+      const classification = classifyDocument(file.name);
+      finalDocType = classification.documentType;
+      confidenceScore = classification.confidence;
+
+      // Show toast about auto-classification
+      toast({
+        title: 'Document Auto-Classified',
+        description: getClassificationDescription(classification),
+      });
     }
 
     const fileExt = file.name.split('.').pop();
@@ -46,22 +64,45 @@ export default function ClientUpload() {
       .from('tax-documents')
       .getPublicUrl(filePath);
 
-    const { error: dbError } = await (supabase as any).from('documents').insert({
+    // Determine if this document requires data entry
+    const needsReview = finalDocType ? requiresDataEntry(finalDocType) : false;
+
+    // Insert document record
+    const { data: docData, error: dbError } = await (supabase as any).from('documents').insert({
       client_id: user.id,
       cpa_id: user.assigned_cpa_id,
       file_name: file.name,
       file_url: urlData.publicUrl,
       file_size: file.size,
       file_type: file.type,
-      document_type: documentType || null,
+      document_type: finalDocType,
       tax_year: parseInt(taxYear),
       notes: notes || null,
-      status: 'uploaded',
-    });
+      status: needsReview ? 'processing' : 'uploaded',
+      confidence_score: confidenceScore * 100,
+      requires_review: needsReview,
+    }).select().single();
 
     if (dbError) {
       await supabase.storage.from('tax-documents').remove([filePath]);
       throw dbError;
+    }
+
+    // Create extracted field records if document type has expected fields
+    if (finalDocType && docData) {
+      const extractedFields = createInitialExtractedFields(file.name, finalDocType);
+
+      if (extractedFields.length > 0) {
+        const fieldRecords = extractedFields.map(field => ({
+          document_id: docData.id,
+          field_name: field.field_name,
+          field_value: field.field_value,
+          confidence_score: field.confidence_score * 100,
+          extraction_method: field.extraction_method,
+        }));
+
+        await (supabase as any).from('extracted_data').insert(fieldRecords);
+      }
     }
   };
 
