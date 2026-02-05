@@ -82,7 +82,7 @@ export async function signUp(
     }
   }
 
-  return authData;
+  return { ...authData, userId: authData.user.id };
 }
 
 export async function signIn(email: string, password: string) {

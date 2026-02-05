@@ -1,20 +1,30 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText } from 'lucide-react';
+import { FileText, CheckCircle } from 'lucide-react';
 import { signUp } from '@/lib/supabase/auth';
+import { supabase } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { UserRole } from '@/lib/supabase/types';
 
+interface InvitationInfo {
+  invitation_id: string;
+  cpa_id: string;
+  firm_id: string;
+  cpa_name: string;
+  firm_name: string;
+}
+
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -22,6 +32,70 @@ export default function SignupPage() {
   const [role, setRole] = useState<UserRole>('client');
   const [firmName, setFirmName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
+  const [invitationInfo, setInvitationInfo] = useState<InvitationInfo | null>(null);
+  const [checkingInvitation, setCheckingInvitation] = useState(false);
+
+  // Check for invitation token in URL on mount
+  useEffect(() => {
+    const token = searchParams.get('invitation');
+    if (token) {
+      setInvitationToken(token);
+      checkInvitationToken(token);
+    }
+  }, [searchParams]);
+
+  const checkInvitationToken = async (token: string) => {
+    setCheckingInvitation(true);
+    try {
+      const { data, error } = await supabase
+        .from('client_invitations')
+        .select(`
+          id,
+          cpa_id,
+          firm_id,
+          email,
+          client_name,
+          users!client_invitations_cpa_id_fkey(full_name),
+          cpa_firms!client_invitations_firm_id_fkey(firm_name)
+        `)
+        .eq('token', token)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+      if (data && !error) {
+        setInvitationInfo({
+          invitation_id: data.id,
+          cpa_id: data.cpa_id,
+          firm_id: data.firm_id,
+          cpa_name: (data.users as any)?.full_name || 'Your CPA',
+          firm_name: (data.cpa_firms as any)?.firm_name || 'CPA Firm',
+        });
+        // Pre-fill email from invitation if available
+        if (data.email) {
+          setEmail(data.email);
+        }
+        // Pre-fill name if provided
+        if (data.client_name) {
+          setFullName(data.client_name);
+        }
+        // Lock role to client for invited users
+        setRole('client');
+      } else {
+        toast({
+          title: 'Invalid Invitation',
+          description: 'This invitation link is invalid or has expired.',
+          variant: 'destructive',
+        });
+        setInvitationToken(null);
+      }
+    } catch (error) {
+      console.error('Error checking invitation:', error);
+    } finally {
+      setCheckingInvitation(false);
+    }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,12 +131,45 @@ export default function SignupPage() {
         return;
       }
 
-      await signUp(email, password, fullName, role, firmName);
+      // Sign up the user
+      const { userId } = await signUp(email, password, fullName, role, firmName);
 
-      toast({
-        title: 'Account Created',
-        description: 'Your account has been created successfully',
-      });
+      // If there's an invitation, accept it to link the client to the CPA
+      if (invitationInfo && invitationToken && userId) {
+        try {
+          // Update the invitation status
+          await supabase
+            .from('client_invitations')
+            .update({
+              status: 'accepted',
+              accepted_at: new Date().toISOString(),
+              accepted_by: userId,
+            })
+            .eq('id', invitationInfo.invitation_id);
+
+          // Assign the client to the CPA
+          await supabase
+            .from('users')
+            .update({
+              assigned_cpa_id: invitationInfo.cpa_id,
+              cpa_firm_id: invitationInfo.firm_id,
+            })
+            .eq('id', userId);
+
+          toast({
+            title: 'Account Created',
+            description: `You've been connected to ${invitationInfo.firm_name}`,
+          });
+        } catch (invError) {
+          console.error('Error accepting invitation:', invError);
+          // Continue anyway - account is created
+        }
+      } else {
+        toast({
+          title: 'Account Created',
+          description: 'Your account has been created successfully',
+        });
+      }
 
       router.push('/login');
     } catch (error: any) {
@@ -76,6 +183,17 @@ export default function SignupPage() {
     }
   };
 
+  if (checkingInvitation) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Verifying invitation...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
@@ -87,27 +205,49 @@ export default function SignupPage() {
           <p className="text-gray-600 mt-2">Create your account</p>
         </div>
 
+        {invitationInfo && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                <div>
+                  <p className="font-medium text-green-800">You've been invited!</p>
+                  <p className="text-sm text-green-700 mt-1">
+                    {invitationInfo.cpa_name} from <strong>{invitationInfo.firm_name}</strong> has invited you to join TaxDocs. Complete your signup to get started.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Sign Up</CardTitle>
-            <CardDescription>Join TaxDocs to manage your tax documents</CardDescription>
+            <CardDescription>
+              {invitationInfo
+                ? 'Complete your account to connect with your CPA'
+                : 'Join TaxDocs to manage your tax documents'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="role">I am a</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                  <SelectTrigger id="role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="client">Client</SelectItem>
-                    <SelectItem value="cpa">CPA / Tax Professional</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!invitationInfo && (
+                <div className="space-y-2">
+                  <Label htmlFor="role">I am a</Label>
+                  <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+                    <SelectTrigger id="role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="cpa">CPA / Tax Professional</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              {role === 'cpa' && (
+              {role === 'cpa' && !invitationInfo && (
                 <div className="space-y-2">
                   <Label htmlFor="firmName">Firm Name *</Label>
                   <Input
@@ -140,6 +280,7 @@ export default function SignupPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={!!invitationInfo} // Lock email if from invitation
                 />
               </div>
 
@@ -175,3 +316,4 @@ export default function SignupPage() {
     </div>
   );
 }
+

@@ -32,6 +32,8 @@ export type TaskPriority = 'low' | 'medium' | 'high';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed';
 
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
+
 export interface Database {
   public: {
     Tables: {
@@ -307,6 +309,51 @@ export interface Database {
           created_at?: string;
         };
       };
+      client_invitations: {
+        Row: {
+          id: string;
+          cpa_id: string;
+          firm_id: string;
+          email: string;
+          token: string;
+          status: InvitationStatus;
+          invited_at: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_by: string | null;
+          client_name: string | null;
+          notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          cpa_id: string;
+          firm_id: string;
+          email: string;
+          token?: string;
+          status?: InvitationStatus;
+          invited_at?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          client_name?: string | null;
+          notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          cpa_id?: string;
+          firm_id?: string;
+          email?: string;
+          token?: string;
+          status?: InvitationStatus;
+          invited_at?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          client_name?: string | null;
+          notes?: string | null;
+        };
+      };
     };
   };
 }
+

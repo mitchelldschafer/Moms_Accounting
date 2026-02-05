@@ -1,0 +1,5 @@
+# Agent 3-Layer Architecture
+.tmp/
+.env
+credentials.json
+token.json
