@@ -11,6 +11,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading) {
       if (user) {
+        console.log('Home page redirect - user:', user);
+        console.log('Home page redirect - role:', user.role);
         if (user.role === 'cpa') {
           router.push('/cpa/dashboard');
         } else {
