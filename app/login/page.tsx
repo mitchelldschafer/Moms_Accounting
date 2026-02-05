@@ -39,13 +39,26 @@ export default function LoginPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: userData } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
           .maybeSingle();
 
-        if ((userData as any)?.role === 'cpa') {
+        console.log('Login - user data:', userData, 'error:', userError);
+
+        if (!userData || !userData.role) {
+          // User record doesn't exist or role is missing
+          toast({
+            title: 'Account Setup Incomplete',
+            description: 'Please try signing in again or contact support.',
+            variant: 'destructive',
+          });
+          await supabase.auth.signOut();
+          return;
+        }
+
+        if (userData.role === 'cpa') {
           router.push('/cpa/dashboard');
         } else {
           router.push('/client/dashboard');
