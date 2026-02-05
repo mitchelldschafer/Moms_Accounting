@@ -162,13 +162,11 @@ export default function CPAClients() {
           <div>
             <p className="text-gray-600">Manage all your clients in one place</p>
           </div>
-          {user && (
-            <InviteClientModal
-              cpaId={user.id}
-              firmId={firmId || undefined}
-              onInviteSent={loadInvitations}
-            />
-          )}
+          <InviteClientModal
+            cpaId={user?.id || ''}
+            firmId={firmId || undefined}
+            onInviteSent={loadInvitations}
+          />
         </div>
 
         <Tabs defaultValue="clients" className="space-y-4">
