@@ -157,10 +157,10 @@ export default function CPAClients() {
           <div>
             <p className="text-gray-600">Manage all your clients in one place</p>
           </div>
-          {firmId && user && (
+          {user && (
             <InviteClientModal
               cpaId={user.id}
-              firmId={firmId}
+              firmId={firmId || undefined}
               onInviteSent={loadInvitations}
             />
           )}

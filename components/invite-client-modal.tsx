@@ -38,7 +38,7 @@ type InviteFormValues = z.infer<typeof inviteSchema>;
 
 interface InviteClientModalProps {
     cpaId: string;
-    firmId: string;
+    firmId?: string;
     onInviteSent?: () => void;
 }
 
