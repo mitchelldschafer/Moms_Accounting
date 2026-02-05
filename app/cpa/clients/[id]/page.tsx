@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { FilingStatus } from '@/lib/supabase/types';
 import { maskSSN } from '@/lib/supabase/auth';
+import { getSignedFileUrl } from '@/lib/supabase/storage';
 import { getFieldLabel } from '@/lib/field-extractor';
 import {
   Dialog,
@@ -63,6 +64,7 @@ export default function CPAClientDetail() {
   const [newMessage, setNewMessage] = useState({ subject: '', body: '' });
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [viewingFile, setViewingFile] = useState(false);
 
   useEffect(() => {
     if (user && clientId) {
@@ -112,6 +114,24 @@ export default function CPAClientDetail() {
     } else {
       toast({ title: 'Updated', description: 'Document updated successfully' });
       loadClientData();
+    }
+  };
+
+  const handleViewDocument = async (fileUrl: string) => {
+    setViewingFile(true);
+    try {
+      const signedUrl = await getSignedFileUrl(fileUrl);
+      if (signedUrl) {
+        window.open(signedUrl, '_blank');
+      } else {
+        // Fallback to direct URL if signed URL fails
+        window.open(fileUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Error getting signed URL:', error);
+      window.open(fileUrl, '_blank');
+    } finally {
+      setViewingFile(false);
     }
   };
 
@@ -268,7 +288,7 @@ export default function CPAClientDetail() {
                           <TableCell>{format(new Date(doc.uploaded_at), 'MMM d, yyyy')}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end space-x-2">
-                              <Button variant="ghost" size="sm" onClick={() => window.open(doc.file_url, '_blank')}>
+                              <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc.file_url)} disabled={viewingFile}>
                                 <Eye className="h-4 w-4" />
                               </Button>
                               {doc.status !== 'reviewed' && doc.status !== 'complete' && (
