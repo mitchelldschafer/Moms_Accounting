@@ -56,11 +56,13 @@ export default function CPAClients() {
     setLoading(true);
 
     // Get the CPA's firm ID
-    const { data: userData } = await supabase
+    const result = await supabase
       .from('users')
       .select('cpa_firm_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
+
+    const userData = result.data as { cpa_firm_id: string | null } | null;
 
     if (userData?.cpa_firm_id) {
       setFirmId(userData.cpa_firm_id);
@@ -119,7 +121,7 @@ export default function CPAClients() {
   };
 
   const cancelInvitation = async (invitationId: string) => {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('client_invitations')
       .update({ status: 'cancelled' })
       .eq('id', invitationId);

@@ -39,11 +39,14 @@ export default function LoginPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: userData, error: userError } = await supabase
+        const result = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
           .maybeSingle();
+
+        const userData = result.data as { role: string } | null;
+        const userError = result.error;
 
         console.log('Login - user data:', userData, 'error:', userError);
 

@@ -48,7 +48,7 @@ export default function SignupPage() {
   const checkInvitationToken = async (token: string) => {
     setCheckingInvitation(true);
     try {
-      const { data, error } = await supabase
+      const result = await supabase
         .from('client_invitations')
         .select(`
           id,
@@ -62,7 +62,10 @@ export default function SignupPage() {
         .eq('token', token)
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString())
-        .single();
+        .maybeSingle();
+
+      const data = result.data as any;
+      const error = result.error;
 
       if (data && !error) {
         setInvitationInfo({
@@ -138,7 +141,7 @@ export default function SignupPage() {
       if (invitationInfo && invitationToken && userId) {
         try {
           // Update the invitation status
-          await supabase
+          await (supabase as any)
             .from('client_invitations')
             .update({
               status: 'accepted',
@@ -148,7 +151,7 @@ export default function SignupPage() {
             .eq('id', invitationInfo.invitation_id);
 
           // Assign the client to the CPA
-          await supabase
+          await (supabase as any)
             .from('users')
             .update({
               assigned_cpa_id: invitationInfo.cpa_id,

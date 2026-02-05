@@ -81,7 +81,7 @@ export function InviteClientModal({
             }
 
             // Create the invitation
-            const { data: invitation, error } = await supabase
+            const { data: invitation, error } = await (supabase as any)
                 .from('client_invitations')
                 .insert({
                     cpa_id: cpaId,
