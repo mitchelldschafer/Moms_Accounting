@@ -25,6 +25,8 @@ export async function signUp(
   firmName?: string,
   assignedCpaId?: string
 ) {
+  console.log('Starting signup with role:', role);
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -34,9 +36,12 @@ export async function signUp(
     throw authError;
   }
 
+  console.log('Auth user created:', authData.user.id);
+
   let firmId: string | null = null;
 
   if (role === 'cpa' && firmName) {
+    console.log('Creating CPA firm:', firmName);
     const { data: firmData, error: firmError } = await (supabase as any)
       .from('cpa_firms')
       .insert({ firm_name: firmName })
@@ -44,33 +49,40 @@ export async function signUp(
       .single();
 
     if (firmError) {
-      // Note: Can't delete auth user from client-side, but the account won't have a profile
+      console.error('Failed to create firm:', firmError);
       throw new Error(`Failed to create firm: ${firmError.message}`);
     }
 
     firmId = firmData.id;
+    console.log('Firm created with id:', firmId);
   }
 
+  console.log('Creating user profile with role:', role);
   const { error: userError } = await (supabase as any)
     .from('users')
     .insert({
       id: authData.user.id,
       email,
       full_name: fullName,
-      role,
+      role, // This is the role passed in - 'cpa' or 'client'
       cpa_firm_id: firmId,
       assigned_cpa_id: assignedCpaId || null,
     });
 
   if (userError) {
+    console.error('Failed to create user profile:', userError);
     if (firmId) {
       await (supabase as any).from('cpa_firms').delete().eq('id', firmId);
     }
-    // Note: Can't delete auth user from client-side, but the account won't be usable without a profile
     throw new Error(`Failed to create user profile: ${userError.message}`);
   }
 
+  console.log('User profile created successfully with role:', role);
+
+  // Create clients_profile only for client role
+  // This is optional - the profile can be created lazily if this fails
   if (role === 'client') {
+    console.log('Creating client profile...');
     const { error: profileError } = await (supabase as any)
       .from('clients_profile')
       .insert({
@@ -78,7 +90,10 @@ export async function signUp(
       });
 
     if (profileError) {
-      throw profileError;
+      // Log but don't throw - clients_profile can be created later
+      console.warn('Note: clients_profile creation deferred:', profileError.message);
+    } else {
+      console.log('Client profile created successfully');
     }
   }
 
