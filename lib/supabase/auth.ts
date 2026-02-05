@@ -44,7 +44,7 @@ export async function signUp(
       .single();
 
     if (firmError) {
-      await supabase.auth.admin.deleteUser(authData.user.id);
+      // Note: Can't delete auth user from client-side, but the account won't have a profile
       throw new Error(`Failed to create firm: ${firmError.message}`);
     }
 
@@ -66,7 +66,7 @@ export async function signUp(
     if (firmId) {
       await (supabase as any).from('cpa_firms').delete().eq('id', firmId);
     }
-    await supabase.auth.admin.deleteUser(authData.user.id);
+    // Note: Can't delete auth user from client-side, but the account won't be usable without a profile
     throw new Error(`Failed to create user profile: ${userError.message}`);
   }
 
