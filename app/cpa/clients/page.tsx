@@ -26,7 +26,7 @@ interface Invitation {
 }
 
 export default function CPAClients() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [clients, setClients] = useState<any[]>([]);
   const [filteredClients, setFilteredClients] = useState<any[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -36,10 +36,15 @@ export default function CPAClients() {
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
     if (user) {
       loadUserAndClients();
+    } else {
+      setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     filterClients();
