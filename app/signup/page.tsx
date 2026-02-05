@@ -29,7 +29,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('client');
+  const [role, setRole] = useState<UserRole>('cpa');
   const [firmName, setFirmName] = useState('');
   const [loading, setLoading] = useState(false);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
@@ -227,27 +227,15 @@ export default function SignupPage() {
             <CardDescription>
               {invitationInfo
                 ? 'Complete your account to connect with your CPA'
-                : 'Join TaxDocs to manage your tax documents'}
+                : 'Create your CPA account to start managing clients'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
-              {!invitationInfo && (
-                <div className="space-y-2">
-                  <Label htmlFor="role">I am a</Label>
-                  <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                    <SelectTrigger id="role">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="client">Client</SelectItem>
-                      <SelectItem value="cpa">CPA / Tax Professional</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* No role selector - direct signups are CPA-only */}
+              {/* Clients can only sign up via invitation link */}
 
-              {role === 'cpa' && !invitationInfo && (
+              {!invitationInfo && (
                 <div className="space-y-2">
                   <Label htmlFor="firmName">Firm Name *</Label>
                   <Input
