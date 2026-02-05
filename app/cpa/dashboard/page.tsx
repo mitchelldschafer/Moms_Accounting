@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function CPADashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({
     totalClients: 0,
     documentsToReview: 0,
@@ -27,10 +27,16 @@ export default function CPADashboard() {
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
     if (user) {
       loadDashboardData();
+    } else {
+      // No user, stop loading
+      setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const loadDashboardData = async () => {
     if (!user) return;
