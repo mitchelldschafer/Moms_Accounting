@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Upload, MessageSquare, User, LogOut, Home } from 'lucide-react';
+import { FileText, Upload, MessageSquare, User, LogOut, Home, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth-provider';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/client/dashboard', label: 'Dashboard', icon: Home },
+  { href: '/client/tax-info', label: 'Tax Info', icon: ClipboardList },
   { href: '/client/documents', label: 'My Documents', icon: FileText },
   { href: '/client/upload', label: 'Upload', icon: Upload },
   { href: '/client/messages', label: 'Messages', icon: MessageSquare },

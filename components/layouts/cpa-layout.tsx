@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Settings,
   LogOut,
+  Calculator,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth-provider';
@@ -19,6 +20,7 @@ const sidebarItems = [
   { href: '/cpa/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/cpa/clients', label: 'Clients', icon: Users },
   { href: '/cpa/documents', label: 'Documents', icon: FileText },
+  { href: '/cpa/tax-prep', label: 'Tax Prep', icon: Calculator },
   { href: '/cpa/tasks', label: 'Tasks', icon: CheckSquare },
   { href: '/cpa/messages', label: 'Messages', icon: MessageSquare },
   { href: '/cpa/settings', label: 'Settings', icon: Settings },

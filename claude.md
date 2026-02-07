@@ -1,66 +1,87 @@
-# Agent Instructions
+# TaxDocs - Single CPA Tax Assistant
 
+## Project Overview
+TaxDocs is a web application that serves as a single accountant's tax preparation assistant. It connects a CPA with their clients to collect tax documents, extract financial data, and streamline tax return preparation.
 
-## The 3-Layer Architecture
+**Stack:** Next.js 14 (App Router) / TypeScript / Tailwind CSS / shadcn/ui / Supabase (Auth + PostgreSQL + Storage)
 
-**Layer 1: Directive (What to do)**
-- Basically just SOPs written in Markdown, live in `directives/`
-- Define the goals, inputs, tools/scripts to use, outputs, and edge cases
-- Natural language instructions, like you'd give a mid-level employee
+## Architecture
 
-**Layer 2: Orchestration (Decision making)**
-- This is you. Your job: intelligent routing.
-- Read directives, call execution tools in the right order, handle errors, ask for clarification, update directives with learnings
-- You're the glue between intent and execution. E.g you don't try scraping websites yourself—you read `directives/scrape_website.md` and come up with inputs/outputs and then run `execution/scrape_single_site.py`
+### Directory Structure
+```
+app/                    → Next.js App Router pages
+  client/               → Client portal (dashboard, upload, documents, tax-info, messages, profile)
+  cpa/                  → CPA portal (dashboard, clients, documents, tax-prep, tasks, messages, settings)
+  login/ signup/        → Authentication pages
+components/             → React components
+  layouts/              → ClientLayout and CPALayout wrappers
+  ui/                   → shadcn/ui primitives (do not modify directly)
+lib/                    → Business logic and utilities
+  supabase/             → Supabase client, auth helpers, storage utils, TypeScript types
+  document-classifier.ts → Filename-based document type detection
+  field-extractor.ts    → Expected field definitions and initial extraction per doc type
+  tax-summary.ts        → Aggregation of extracted data into tax prep summary
+hooks/                  → Custom React hooks
+supabase/migrations/    → PostgreSQL migration files (RLS policies, schema)
+```
 
-**Layer 3: Execution (Doing the work)**
-- Deterministic Python scripts in `execution/`
-- Environment variables, api tokens, etc are stored in `.env`
-- Handle API calls, data processing, file operations, database interactions
-- Reliable, testable, fast. Use scripts instead of manual work. Commented well.
+### Data Flow
+1. **CPA signs up** → creates firm → invites clients via email
+2. **Client signs up** via invitation link → auto-assigned to CPA
+3. **Client uploads documents** → auto-classified by filename → extracted_data fields created
+4. **Client enters tax info** → income sources, deductions, dependents saved to clients_profile
+5. **CPA reviews** → views documents, edits extracted fields, sees auto-populated tax summary
+6. **CPA tax prep workspace** → aggregated view of all income, deductions, and withholdings per client
 
-**Why this works:** if you do everything yourself, errors compound. 90% accuracy per step = 59% success over 5 steps. The solution is push complexity into deterministic code. That way you just focus on decision-making.
+### Key Database Tables
+- `users` — all users (role: 'cpa' | 'client'), links to firm and assigned CPA
+- `clients_profile` — extended client info: SSN, filing status, dependents, address
+- `documents` — uploaded files with type classification and status tracking
+- `extracted_data` — field-level values from documents (wages, interest, etc.)
+- `tasks` — CPA assigns tasks to clients
+- `messages` — CPA ↔ client messaging
+- `client_invitations` — invitation tokens for onboarding
 
-## Operating Principles
+### Document Types & Fields
+Each document type has defined expected fields in `lib/field-extractor.ts`:
+- **W-2**: employer_name, wages, federal/state tax withheld, SS/Medicare
+- **1099-INT**: payer_name, interest income
+- **1099-DIV**: ordinary/qualified dividends, capital gains
+- **1099-MISC**: rents, royalties, other income
+- **1099-NEC**: nonemployee compensation
+- **1099-B**: proceeds, cost basis, gain/loss
+- **Schedule C**: business income/expenses
+- **Receipts**: vendor, amount, category
+- **Bank Statements**: bank, balance, period
 
-**1. Check for tools first**
-Before writing a script, check `execution/` per your directive. Only create new scripts if none exist.
+## Development Guidelines
 
-**2. Self-anneal when things break**
-- Read error message and stack trace
-- Fix the script and test it again (unless it uses paid tokens/credits/etc—in which case you check w user first)
-- Update the directive with what you learned (API limits, timing, edge cases)
-- Example: you hit an API rate limit → you then look into API → find a batch endpoint that would fix → rewrite script to accommodate → test → update directive.
+### Running the App
+```bash
+npm run dev        # Start dev server
+npm run build      # Production build
+npm run lint       # ESLint
+npm run typecheck  # TypeScript type checking
+```
 
-**3. Update directives as you learn**
-Directives are living documents. When you discover API constraints, better approaches, common errors, or timing expectations—update the directive. But don't create or overwrite directives without asking unless explicitly told to. Directives are your instruction set and must be preserved (and improved upon over time, not extemporaneously used and then discarded).
+### Environment Variables Required
+```
+NEXT_PUBLIC_SUPABASE_URL=<supabase-project-url>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
+```
 
-## Self-annealing loop
+### Conventions
+- All pages are `'use client'` components (client-side rendering with Supabase)
+- Use `(supabase as any)` for mutations to work around strict typing on inserts/updates
+- Use `useAuth()` hook from `components/auth-provider.tsx` for current user
+- Use `useToast()` hook for user notifications
+- Wrap client pages in `<ClientLayout>`, CPA pages in `<CPALayout>`
+- Document status flow: `uploaded → processing → extracted → reviewed → complete`
+- Currency values are stored as strings in extracted_data and formatted on display
 
-Errors are learning opportunities. When something breaks:
-1. Fix it
-2. Update the tool
-3. Test tool, make sure it works
-4. Update directive to include new flow
-5. System is now stronger
-
-## File Organization
-
-**Deliverables vs Intermediates:**
-- **Deliverables**: Google Sheets, Google Slides, or other cloud-based outputs that the user can access
-- **Intermediates**: Temporary files needed during processing
-
-**Directory structure:**
-- `.tmp/` - All intermediate files (dossiers, scraped data, temp exports). Never commit, always regenerated.
-- `execution/` - Python scripts (the deterministic tools)
-- `directives/` - SOPs in Markdown (the instruction set)
-- `.env` - Environment variables and API keys
-- `credentials.json`, `token.json` - Google OAuth credentials (required files, in `.gitignore`)
-
-**Key principle:** Local files are only for processing. Deliverables live in cloud services (Google Sheets, Slides, etc.) where the user can access them. Everything in `.tmp/` can be deleted and regenerated.
-
-## Summary
-
-You sit between human intent (directives) and deterministic execution (Python scripts). Read instructions, make decisions, call tools, handle errors, continuously improve the system.
-
-Be pragmatic. Be reliable. Self-anneal.
+### When Making Changes
+- Always run `npm run typecheck` before committing
+- Do not modify files in `components/ui/` (these are shadcn/ui primitives)
+- New pages need to be added to the nav in `components/layouts/client-layout.tsx` or `cpa-layout.tsx`
+- Database changes require a new migration file in `supabase/migrations/`
+- Keep Supabase types in `lib/supabase/types.ts` in sync with schema changes

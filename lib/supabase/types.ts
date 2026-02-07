@@ -113,6 +113,7 @@ export interface Database {
           spouse_ssn_encrypted: string | null;
           dependents: Array<any> | null;
           notes: string | null;
+          tax_info: Record<string, any> | null;
           created_at: string;
           updated_at: string;
         };
@@ -127,6 +128,7 @@ export interface Database {
           spouse_ssn_encrypted?: string | null;
           dependents?: Array<any> | null;
           notes?: string | null;
+          tax_info?: Record<string, any> | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -141,6 +143,7 @@ export interface Database {
           spouse_ssn_encrypted?: string | null;
           dependents?: Array<any> | null;
           notes?: string | null;
+          tax_info?: Record<string, any> | null;
           created_at?: string;
           updated_at?: string;
         };
